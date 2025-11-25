@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Download a TRREB listing URL, extract gallery images and key details,
-and persist everything to a JSON file.
+Library + CLI for downloading TRREB listings and extracting structured data.
 """
 
 from __future__ import annotations
@@ -11,6 +10,7 @@ import asyncio
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any, Dict
 from urllib.parse import urlparse
 
 from custom_parser import _extract_details
@@ -22,10 +22,7 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Download a TRREB listing and save the parsed details as JSON."
     )
-    parser.add_argument(
-        "url",
-        help="Listing URL to download and parse.",
-    )
+    parser.add_argument("url", help="Listing URL to download and parse.")
     parser.add_argument(
         "--output",
         "-o",
@@ -54,46 +51,42 @@ def _base_url_from_listing(url: str) -> str:
     return f"{parsed.scheme}://{parsed.netloc}"
 
 
-async def _download_listing(url: str, output_path: Path, headed: bool) -> None:
-    await fetch_listing(url, output_path, headed=headed)
+async def download_listing_html(
+    url: str, *, headed: bool = False, html_output: Path | None = None
+) -> str:
+    """
+    Download the full HTML for a listing URL via Playwright.
+
+    Returns the HTML text; optionally persists it to html_output.
+    """
+    if html_output:
+        target = Path(html_output).expanduser().resolve()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        await fetch_listing(url, target, headed=headed)
+        return target.read_text(encoding="utf-8")
+
+    with TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir) / "listing.html"
+        await fetch_listing(url, tmp_path, headed=headed)
+        return tmp_path.read_text(encoding="utf-8")
 
 
-def main() -> None:
-    args = _parse_args()
-    output_path = Path(args.output).expanduser().resolve()
-    html_path: Path | None = None
-
-    if args.html_output:
-        html_path = Path(args.html_output).expanduser().resolve()
-        html_path.parent.mkdir(parents=True, exist_ok=True)
-        asyncio.run(_download_listing(args.url, html_path, headed=args.headed))
-    else:
-        with TemporaryDirectory() as tmp_dir:
-            html_path = Path(tmp_dir) / "listing.html"
-            asyncio.run(_download_listing(args.url, html_path, headed=args.headed))
-            html_text = html_path.read_text(encoding="utf-8")
-            _persist_details(
-                args.url,
-                html_text,
-                output_path=output_path,
-            )
-            return
-
-    html_text = html_path.read_text(encoding="utf-8")
-    _persist_details(
-        args.url,
-        html_text,
-        output_path=output_path,
+def download_listing_html_sync(
+    url: str, *, headed: bool = False, html_output: Path | None = None
+) -> str:
+    """Synchronous helper that wraps download_listing_html."""
+    return asyncio.run(
+        download_listing_html(url, headed=headed, html_output=html_output)
     )
 
 
-def _persist_details(url: str, html_text: str, output_path: Path) -> None:
+def parse_listing_details(html_text: str, *, source_url: str) -> Dict[str, Any]:
+    """Convert listing HTML into structured data."""
     details = _extract_details(html_text)
-    base_url = _base_url_from_listing(url)
+    base_url = _base_url_from_listing(source_url)
     images = extract_gallery_image_urls(html_text, base_url=base_url)
-
-    payload = {
-        "source_url": url,
+    return {
+        "source_url": source_url,
         "price": details.get("price"),
         "taxes": details.get("taxes"),
         "tax_year": details.get("tax_year"),
@@ -103,10 +96,43 @@ def _persist_details(url: str, html_text: str, output_path: Path) -> None:
         "images": images,
     }
 
+
+async def extract_listing_details_async(
+    url: str, *, headed: bool = False, html_output: Path | None = None
+) -> Dict[str, Any]:
+    """Async API that downloads a listing and returns parsed details."""
+    html_text = await download_listing_html(url, headed=headed, html_output=html_output)
+    return parse_listing_details(html_text, source_url=url)
+
+
+def extract_listing_details(
+    url: str, *, headed: bool = False, html_output: Path | None = None
+) -> Dict[str, Any]:
+    """Sync wrapper returning listing details."""
+    return asyncio.run(
+        extract_listing_details_async(url, headed=headed, html_output=html_output)
+    )
+
+
+def save_listing_details(details: Dict[str, Any], output_path: Path) -> None:
+    """Persist listing details to JSON."""
+    output_path = output_path.expanduser().resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    output_path.write_text(json.dumps(details, indent=2), encoding="utf-8")
+
+
+def main() -> None:
+    args = _parse_args()
+    html_output_path = (
+        Path(args.html_output).expanduser().resolve() if args.html_output else None
+    )
+    details = extract_listing_details(
+        args.url,
+        headed=args.headed,
+        html_output=html_output_path,
+    )
+    save_listing_details(details, Path(args.output))
 
 
 if __name__ == "__main__":
     main()
-
