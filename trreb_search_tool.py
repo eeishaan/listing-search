@@ -730,6 +730,7 @@ TOOL_DEFINITION = {
         "addresses, and URLs."
     ),
     "input_schema": TREBSearchParams.model_json_schema(),
+    "output_schema": SearchResults.model_json_schema(),
 }
 
 

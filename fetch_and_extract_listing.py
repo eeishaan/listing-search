@@ -10,12 +10,39 @@ import asyncio
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
+
+from pydantic import BaseModel, Field
 
 from custom_parser import _extract_details
 from download_listing_with_playwright import fetch_listing
 from extract_gallery_images import extract_gallery_image_urls
+
+
+class ListingExtractionParams(BaseModel):
+    """Parameters for extracting listing details."""
+
+    url: str = Field(
+        description="The URL of the TRREB listing to extract details from."
+    )
+
+
+class ListingExtractionResult(BaseModel):
+    """Structured details of a real estate listing."""
+
+    source_url: str = Field(description="The URL of the listing.")
+    price: Optional[str] = Field(description="The listed price of the property.")
+    taxes: Optional[str] = Field(description="Annual property taxes.")
+    tax_year: Optional[str] = Field(description="The tax year for the reported taxes.")
+    address: Optional[str] = Field(description="The full address of the property.")
+    house_type: Optional[str] = Field(
+        description="Type of the property (e.g., Detached)."
+    )
+    description: Optional[str] = Field(description="Description of the property.")
+    images: List[str] = Field(
+        default_factory=list, description="List of image URLs for the property."
+    )
 
 
 def _parse_args() -> argparse.Namespace:
@@ -119,6 +146,18 @@ def save_listing_details(details: Dict[str, Any], output_path: Path) -> None:
     output_path = output_path.expanduser().resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(details, indent=2), encoding="utf-8")
+
+
+# =============================================================================
+# Tool Definition for AI Agents
+# =============================================================================
+
+TOOL_DEFINITION = {
+    "name": "extract_listing_details",
+    "description": "Extracts detailed information from a specific TRREB listing URL, including price, address, description, and images.",
+    "input_schema": ListingExtractionParams.model_json_schema(),
+    "output_schema": ListingExtractionResult.model_json_schema(),
+}
 
 
 def main() -> None:
