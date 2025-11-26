@@ -2,13 +2,14 @@ import os
 import json
 import requests
 from typing import Optional, List, Union, Any
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from PIL import Image
 from io import BytesIO
 import argparse
 from google.genai import types
 from google import genai
-from pathlib import Path
 from pydantic import BaseModel, Field
 
 # =============================================================================
@@ -19,6 +20,7 @@ from pydantic import BaseModel, Field
 class AnalyzeListingParams(BaseModel):
     """Input parameters for the listing analysis tool."""
 
+    listing_url: str = Field(description="Listing URL to which the images belong to")
     image_urls: List[str] = Field(description="List of URLs of images to analyze")
     prompt: Optional[str] = Field(
         default=None,
@@ -92,10 +94,17 @@ def _analyze_images(
 
     analysis_prompt = prompt if prompt else DEFAULT_PROMPT
 
+    generate_content_config = types.GenerateContentConfig(
+        thinkingConfig={
+            "thinkingBudget": 0,
+        },
+    )
+
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.5-flash-lite",
             contents=[analysis_prompt, *images],
+            config=generate_content_config,
         )
         return response.text
     except Exception as e:
@@ -128,13 +137,41 @@ def analyze_listing(
     return _analyze_images(image_urls, api_key)
 
 
+class Cache:
+    def __init__(self, cache_dir: Path = "image_cache"):
+        self.cache_dir = Path(cache_dir)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+    def get(self, url: str) -> Dict[str, Any]:
+        cache_file = self.cache_dir / f"{hash(url)}.json"
+        if cache_file.exists():
+            print("cache hit")
+            return json.loads(cache_file.read_text(encoding="utf-8"))
+        return None
+
+    def set(self, url: str, details: Dict[str, Any]):
+        cache_file = self.cache_dir / f"{hash(url)}.json"
+        cache_file.write_text(json.dumps(details, indent=2), encoding="utf-8")
+
+
+GLOBAL_CACHE = Cache()
+
+
 def analyze_listing_tool(params: AnalyzeListingParams) -> AnalyzeListingResult:
     """Tool function to be called by the LLM agent."""
+    key = params.listing_url.split("/")[-1].strip() + (
+        params.prompt if params.prompt else ""
+    )
+    result = GLOBAL_CACHE.get(key)
+    if result:
+        return AnalyzeListingResult(analysis=result["analysis"])
     analysis = _analyze_images(
         params.image_urls,
         prompt=params.prompt,
     )
-    return AnalyzeListingResult(analysis=analysis)
+    result = AnalyzeListingResult(analysis=analysis)
+    GLOBAL_CACHE.set(key, result.model_dump())
+    return result
 
 
 # =============================================================================
