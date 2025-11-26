@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Search Agent</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f5f5f5;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            background: #fff;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: #333;
+        }
+        .chat-box {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            line-height: 1.5;
+            position: relative;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        .user-message {
+            align-self: flex-end;
+            background-color: #007bff;
+            color: white;
+            border-bottom-right-radius: 2px;
+        }
+        .agent-message {
+            align-self: flex-start;
+            background-color: #f0f2f5;
+            color: #333;
+            border-bottom-left-radius: 2px;
+        }
+        .tool-message {
+            align-self: center;
+            font-size: 0.85rem;
+            color: #666;
+            background: #fafafa;
+            border: 1px dashed #ccc;
+            padding: 8px 12px;
+            border-radius: 6px;
+            width: 90%;
+        }
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+            background: #fff;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+            outline: none;
+        }
+        input[type="text"]:focus {
+            border-color: #007bff;
+        }
+        button {
+            padding: 12px 24px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .loading {
+            display: none;
+            color: #666;
+            font-size: 0.9rem;
+            padding: 10px;
+            text-align: center;
+        }
+        /* Markdown-ish styling for agent responses */
+        .agent-message ul, .agent-message ol {
+            margin: 0.5em 0;
+            padding-left: 1.5em;
+        }
+        .agent-message p {
+            margin: 0.5em 0;
+        }
+        .agent-message p:first-child {
+            margin-top: 0;
+        }
+        .agent-message p:last-child {
+            margin-bottom: 0;
+        }
+        .agent-message img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+        .agent-message pre {
+            background: #e4e6eb;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .agent-message code {
+            font-family: Consolas, Monaco, "Andale Mono", monospace;
+            background: rgba(0,0,0,0.05);
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .agent-message pre code {
+            background: none;
+            padding: 0;
+        }
+        .agent-message blockquote {
+            border-left: 3px solid #ccc;
+            margin: 0.5em 0;
+            padding-left: 10px;
+            color: #555;
+        }
+        .link-preview {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-top: 10px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            max-width: 100%;
+            text-decoration: none;
+            color: inherit;
+        }
+        .link-preview:hover {
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .link-preview img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+        .link-preview-content {
+            padding: 10px;
+        }
+        .link-preview-title {
+            font-weight: bold;
+            font-size: 0.95rem;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .link-preview-desc {
+            font-size: 0.85rem;
+            color: #666;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Property Search Agent</h1>
+        </div>
+        <div class="chat-box" id="chat-box">
+            <div class="message agent-message">
+                Hello! I can help you find and analyze properties in Toronto. What are you looking for today?
+            </div>
+        </div>
+        <div class="loading" id="loading">Agent is thinking...</div>
+        <form class="input-area" id="chat-form">
+            <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off" required>
+            <button type="submit" id="send-btn">Send</button>
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const loading = document.getElementById('loading');
+
+        async function unfurlLink(url, container) {
+            try {
+                const res = await fetch(`/preview?url=${encodeURIComponent(url)}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                
+                if (data.title || data.image) {
+                    const card = document.createElement('a');
+                    card.href = data.url;
+                    card.target = "_blank";
+                    card.className = "link-preview";
+                    
+                    let html = '';
+                    if (data.image) {
+                        html += `<img src="${data.image}" alt="Preview image">`;
+                    }
+                    html += `
+                        <div class="link-preview-content">
+                            <div class="link-preview-title">${data.title || url}</div>
+                            ${data.description ? `<div class="link-preview-desc">${data.description}</div>` : ''}
+                        </div>
+                    `;
+                    card.innerHTML = html;
+                    container.appendChild(card);
+                }
+            } catch (e) {
+                console.error("Failed to unfurl", url, e);
+            }
+        }
+
+        function appendMessage(text, type) {
+            const div = document.createElement('div');
+            div.className = `message ${type}-message`;
+            
+            // Simple newline to br conversion for safety, or just textContent
+            if (type === 'agent') {
+                // Use marked to render markdown
+                div.innerHTML = marked.parse(text);
+                
+                // Find links and unfurl them
+                const links = div.querySelectorAll('a');
+                // Only unfurl the first link to avoid clutter? Or all? Let's do up to 3.
+                let count = 0;
+                links.forEach(link => {
+                    // Force new tab for all links
+                    link.target = "_blank";
+                    link.rel = "noopener noreferrer";
+
+                    if (count < 3 && link.href) {
+                        unfurlLink(link.href, div);
+                        count++;
+                    }
+                });
+            } else {
+                div.textContent = text;
+            }
+            
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        async function sendMessage(e) {
+            e.preventDefault();
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            // Add user message
+            appendMessage(text, 'user');
+            userInput.value = '';
+            userInput.disabled = true;
+            sendBtn.disabled = true;
+            loading.style.display = 'block';
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: text }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                
+                let agentMessageDiv = null;
+                let currentAgentText = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    
+                    buffer = lines.pop(); // Keep incomplete line
+                    
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        try {
+                            const data = JSON.parse(line);
+                            
+                            if (data.type === 'text') {
+                                if (!agentMessageDiv) {
+                                    agentMessageDiv = document.createElement('div');
+                                    agentMessageDiv.className = 'message agent-message';
+                                    chatBox.appendChild(agentMessageDiv);
+                                }
+                                currentAgentText += data.content;
+                                agentMessageDiv.innerHTML = marked.parse(currentAgentText);
+                                chatBox.scrollTop = chatBox.scrollHeight;
+                                
+                            } else if (data.type === 'info') {
+                                const infoDiv = document.createElement('div');
+                                infoDiv.className = 'tool-message';
+                                infoDiv.textContent = data.content;
+                                chatBox.appendChild(infoDiv);
+                                chatBox.scrollTop = chatBox.scrollHeight;
+                                // Reset agent div so new text after tool starts fresh
+                                agentMessageDiv = null; 
+                                currentAgentText = "";
+                                
+                            } else if (data.type === 'error') {
+                                appendMessage("Error: " + data.content, 'agent');
+                            }
+                        } catch (e) {
+                            console.error("Error parsing line", line, e);
+                        }
+                    }
+                }
+                
+                // Unfurl links in the last message if exists
+                if (agentMessageDiv) {
+                     const links = agentMessageDiv.querySelectorAll('a');
+                     let count = 0;
+                     links.forEach(link => {
+                        link.target = "_blank";
+                        link.rel = "noopener noreferrer";
+                        if (count < 3 && link.href) {
+                            unfurlLink(link.href, agentMessageDiv);
+                            count++;
+                        }
+                     });
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                appendMessage("Sorry, something went wrong. Please try again.", 'agent');
+            } finally {
+                userInput.disabled = false;
+                sendBtn.disabled = false;
+                userInput.focus();
+                loading.style.display = 'none';
+            }
+        }
+
+        chatForm.addEventListener('submit', sendMessage);
+    </script>
+</body>
+</html>
+

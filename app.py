@@ -1,6 +1,15 @@
 import os
 import logging
-from flask import Flask, render_template, request, jsonify, session
+import json
+from flask import (
+    Flask,
+    render_template,
+    request,
+    jsonify,
+    session,
+    Response,
+    stream_with_context,
+)
 from property_agent import PropertyAgent, TOOL_MAP
 from google.genai import types
 from dotenv import load_dotenv
@@ -58,60 +67,84 @@ def chat():
 
     sid = session.get("session_id")
     if not sid or sid not in conversations:
-        # Restore session if lost or new
         if not sid:
             sid = os.urandom(8).hex()
             session["session_id"] = sid
         conversations[sid] = []
 
     history = conversations[sid]
-
-    # Add user message to history
     history.append(types.Content(role="user", parts=[types.Part(text=user_message)]))
 
-    # Process through the agent loop
-    final_response_text = "I'm sorry, I couldn't generate a response."
+    def generate():
+        try:
+            while True:
+                logger.info(f"Calling model with {len(history)} messages (stream=True)")
+                stream = agent.client.models.generate_content_stream(
+                    model=agent.model_name,
+                    contents=history,
+                    config=agent.config,
+                )
 
-    try:
-        # Loop to handle tool calls
-        while True:
-            logger.info(f"Calling model with {len(history)} messages")
-            response = agent.client.models.generate_content(
-                model=agent.model_name,
-                contents=history,
-                config=agent.config,
-            )
+                full_text = ""
+                tool_call = None
 
-            # Check for malformed calls
-            if response.candidates[0].finish_reason == "MALFORMED_FUNCTION_CALL":
-                logger.error("Malformed function call")
-                final_response_text = "I encountered an error with the function call."
-                break
+                for chunk in stream:
+                    # Handle text chunks
+                    try:
+                        if chunk.text:
+                            text_part = chunk.text
+                            full_text += text_part
+                            yield json.dumps(
+                                {"type": "text", "content": text_part}
+                            ) + "\n"
+                    except Exception:
+                        pass
 
-            # Append response to history
-            history.append(response.candidates[0].content)
-
-            # Check for tool call
-            parts = response.candidates[0].content.parts
-            tool_call = None
-            if parts:
-                for part in parts:
-                    if part.function_call:
-                        tool_call = part.function_call
+                    # Check for tool calls in the chunk
+                    if chunk.candidates:
+                        for part in chunk.candidates[0].content.parts:
+                            if part.function_call:
+                                tool_call = part.function_call
+                                break
+                    if tool_call:
                         break
 
-            if tool_call:
+                # Update history with the assistant's turn
+                parts = []
+                if full_text:
+                    parts.append(types.Part(text=full_text))
+                if tool_call:
+                    parts.append(types.Part(function_call=tool_call))
+
+                if parts:
+                    history.append(types.Content(role="model", parts=parts))
+
+                if not tool_call:
+                    yield json.dumps({"type": "done"}) + "\n"
+                    break
+
+                # Handle Tool Call
                 tool_name = tool_call.name
-                logger.info(f"Tool call: {tool_name}")
+                logger.info(f"Tool call detected: {tool_name}")
+
+                # User friendly notification
+                friendly_msg = "Processing..."
+                if "search" in tool_name.lower():
+                    friendly_msg = "Searching for properties..."
+                elif "detail" in tool_name.lower():
+                    friendly_msg = "Fetching listing details..."
+                elif "analyze" in tool_name.lower():
+                    friendly_msg = "Analyzing property images..."
+
+                yield json.dumps({"type": "info", "content": friendly_msg}) + "\n"
 
                 tool = TOOL_MAP.get(tool_name)
                 if tool:
                     try:
                         args = dict(tool_call.args)
-                        # Execute tool
                         result = tool(**args)
 
-                        # Create function response
+                        # Add result to history
                         function_response_part = types.Part.from_function_response(
                             name=tool_name,
                             response={"result": result},
@@ -119,23 +152,19 @@ def chat():
                         history.append(
                             types.Content(role="user", parts=[function_response_part])
                         )
-                        # Loop continues to send tool output back to model
-                        continue
 
                     except Exception as e:
                         logger.error(f"Error executing tool {tool_name}: {e}")
-                        # Feed error back to model
                         history.append(
                             types.Content(
                                 role="user",
                                 parts=[
-                                    types.Part(
-                                        text=f"Error executing tool {tool_name}: {e}"
+                                    types.Part.from_function_response(
+                                        name=tool_name, response={"error": str(e)}
                                     )
                                 ],
                             )
                         )
-                        continue
                 else:
                     logger.error(f"Tool {tool_name} not found")
                     history.append(
@@ -144,19 +173,14 @@ def chat():
                             parts=[types.Part(text=f"Tool {tool_name} not found")],
                         )
                     )
-                    continue
 
-            # If no tool call, it's a text response (or empty)
-            if response.text:
-                final_response_text = response.text
+        except Exception as e:
+            logger.error(f"Error in chat loop: {e}", exc_info=True)
+            yield json.dumps({"type": "error", "content": str(e)}) + "\n"
 
-            break
-
-    except Exception as e:
-        logger.error(f"Error in chat loop: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
-
-    return jsonify({"response": final_response_text})
+    return Response(
+        stream_with_context(generate()), content_type="application/x-ndjson"
+    )
 
 
 @app.route("/reset", methods=["POST"])
