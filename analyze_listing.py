@@ -159,9 +159,7 @@ GLOBAL_CACHE = Cache()
 
 def analyze_listing_tool(params: AnalyzeListingParams) -> AnalyzeListingResult:
     """Tool function to be called by the LLM agent."""
-    key = params.listing_url.split("/")[-1].strip() + (
-        params.prompt if params.prompt else ""
-    )
+    key = params.listing_url.split("/")[-1].strip()
     result = GLOBAL_CACHE.get(key)
     if result:
         return AnalyzeListingResult(analysis=result["analysis"])
