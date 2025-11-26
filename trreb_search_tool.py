@@ -530,8 +530,11 @@ async def extract_listing_results(page: Page) -> list[ListingResult]:
 
     # Find listing items in the results list
     # Find table with ID starting with DataTables_Table_*
-    listing_table = page.locator("[id^='DataTables_Table_']").first
-    await listing_table.wait_for(state="visible", timeout=ELEMENT_TIMEOUT_MS)
+    try:
+        listing_table = page.locator("[id^='DataTables_Table_']").first
+        await listing_table.wait_for(state="visible", timeout=ELEMENT_TIMEOUT_MS)
+    except:
+        return []
 
     # Find rows in the table
     listing_rows = await listing_table.locator("tbody tr").all()
