@@ -14,6 +14,9 @@ import asyncio
 import json
 from typing import List, Optional, Dict, Any, Union
 import time
+import logging
+import datetime
+import traceback
 from google import genai
 from google.genai import types
 from pydantic import BaseModel
@@ -26,6 +29,58 @@ from trreb_search_tool import (
 from fetch_and_extract_listing import extract_listing_details, ListingExtractionParams
 from analyze_listing import analyze_listing_tool, AnalyzeListingParams
 from google.genai import errors
+
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+
+# Create a custom logger
+logger = logging.getLogger("PropertyAgent")
+logger.setLevel(logging.DEBUG)
+
+# Create handlers
+c_handler = logging.StreamHandler(sys.stdout)
+log_filename = datetime.datetime.now().strftime("property_agent_%Y%m%d_%H%M%S.log")
+f_handler = logging.FileHandler(log_filename)
+
+# Set levels
+c_handler.setLevel(logging.INFO)
+f_handler.setLevel(logging.DEBUG)
+
+# Create formatters and add to handlers
+# Console: cleaner output for user interaction
+c_format = logging.Formatter("%(message)s")
+# File: detailed output for debugging
+f_format = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+c_handler.setFormatter(c_format)
+f_handler.setFormatter(f_format)
+
+# Add handlers to the logger
+if not logger.handlers:
+    logger.addHandler(c_handler)
+    logger.addHandler(f_handler)
+
+
+def dump_conversation(contents: List[Any], error: Optional[Exception] = None):
+    """Dumps the conversation history to a file in case of failure."""
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"conversation_dump_{timestamp}.log"
+    try:
+        with open(filename, "w", encoding="utf-8") as f:
+            if error:
+                f.write(f"FAILURE ERROR: {str(error)}\n")
+                f.write(f"TRACEBACK:\n{traceback.format_exc()}\n")
+                f.write("=" * 80 + "\n\n")
+
+            f.write("CONVERSATION LOG:\n")
+            for i, content in enumerate(contents):
+                f.write(f"--- Message {i} ---\n")
+                f.write(f"{content}\n\n")
+        logger.info(f"Conversation dumped to {filename}")
+    except Exception as e:
+        logger.error(f"Failed to dump conversation: {e}")
+
 
 # =============================================================================
 # Tool Wrappers
@@ -56,7 +111,7 @@ def search_properties(
     Returns:
         A dictionary containing the search results (count and list of listings).
     """
-    print(f"\n[Tool] Searching listings in {location}...")
+    logger.info(f"\n[Tool] Searching listings in {location}...")
 
     # Handle defaults internally since Gemini API tool schema doesn't support defaults
     final_listing_type = listing_type if listing_type else "sale"
@@ -98,7 +153,7 @@ def get_listing_details(url: str, image_analysis_prompt: str | None) -> Dict[str
     Returns:
         A dictionary with listing details (price, address, description, image_urls).
     """
-    print(f"\n[Tool] Extracting details from {url}...")
+    logger.info(f"\n[Tool] Extracting details from {url}...")
     # Run extraction
     details = extract_listing_details(url)
 
@@ -123,7 +178,7 @@ def analyze_listing_images(
     Returns:
         A text analysis of the images.
     """
-    print(f"\n[Tool] Analyzing {len(image_urls)} images...")
+    logger.info(f"\n[Tool] Analyzing {len(image_urls)} images...")
     params = AnalyzeListingParams(
         listing_url=listing_url,
         image_urls=image_urls,
@@ -146,10 +201,10 @@ TOOL_MAP = {
 
 
 class PropertyAgent:
-    def __init__(self, model_name: str = "gemini-3.0-pro"):
+    def __init__(self, model_name: str = "gemini-2.5-flash"):
         self.api_key = os.environ.get("GOOGLE_API_KEY")
         if not self.api_key:
-            print("Warning: GOOGLE_API_KEY not set in environment.")
+            logger.warning("GOOGLE_API_KEY not set in environment.")
             self.api_key = input("Please enter your Google API Key: ").strip()
             if not self.api_key:
                 raise ValueError("API Key is required to run this agent.")
@@ -198,7 +253,7 @@ class PropertyAgent:
         4.  Refine:
             - Iterate based on user feedback.
 
-        Always be professional, helpful, and concise.
+        Always be professional, helpful, and concise. Make sure your output is in markdown format.
         """
 
         self.config = types.GenerateContentConfig(
@@ -219,9 +274,9 @@ class PropertyAgent:
 
     def start_chat(self):
         """Starts an interactive chat session with the user."""
-        print("Property Search Agent initialized.")
-        print("I can help you find and analyze properties in Toronto.")
-        print("What are you looking for today? (Type 'quit' to exit)")
+        logger.info("Property Search Agent initialized.")
+        logger.info("I can help you find and analyze properties in Toronto.")
+        logger.info("What are you looking for today? (Type 'quit' to exit)")
 
         # Start the chat session
         # Note: tools are passed as a list of callables.
@@ -232,12 +287,12 @@ class PropertyAgent:
         first_query = None
         # first_query = "I'm looking for a house in one of the best school districts in toronto. My budget is between 700k to 900k. The area should be family friendly and have some parks around. The house should have at least 3 bedrooms, 2 bathrooms and 1 parking. Minimum sqft area should be 1000 sq ft. The house should have ample natural light and should not have a lot of dark corners in levels above grade."
         while True:
-            print("len of contents at entry: ", len(contents))
+            logger.debug(f"len of contents at entry: {len(contents)}")
 
             if is_user_turn:
                 user_input = input("\nYou: ") if first_query is None else first_query
                 if user_input.lower() in ["quit", "exit"]:
-                    print("Goodbye!")
+                    logger.info("Goodbye!")
                     break
                 first_query = None
                 contents.append(
@@ -252,18 +307,18 @@ class PropertyAgent:
                     config=self.config,
                 )
             except errors.ClientError as e:
-                print(e)
+                logger.error(f"ClientError: {e}")
                 retry_delay = e.details["error"]["details"][-1]["retryDelay"][:-1]
-                print(f"sleeping for {retry_delay}")
+                logger.info(f"sleeping for {retry_delay}")
                 time.sleep(int(retry_delay))
                 is_user_turn = False
                 continue
             except Exception as e:
-                print(f"\nError: {e}")
-                import traceback
-
-                traceback.print_exc()
+                logger.error(f"\nError: {e}", exc_info=True)
+                dump_conversation(contents, e)
                 is_user_turn = False
+                # Instead of just sleeping, we might want to break or continue.
+                # The original code continued.
                 time.sleep(1)
                 continue
 
@@ -280,7 +335,7 @@ class PropertyAgent:
 
             is_user_turn = True
             if response.text:
-                print(f"\nAgent: {response.text}")
+                logger.info(f"\nAgent: {response.text}")
 
             tool_call = response.candidates[0].content.parts[-1].function_call
 
@@ -290,19 +345,37 @@ class PropertyAgent:
             tool_name = tool_call.name
             tool = TOOL_MAP.get(tool_name)
             if tool:
-                print(f"calling tool {tool_name} with args: {tool_call.args}")
-                result = tool(**tool_call.args)
-                print(f"got result from tool {tool_name}: {result}")
-                function_response_part = types.Part.from_function_response(
-                    name=tool_name,
-                    response={"result": result},
-                )
-                contents.append(
-                    types.Content(role="user", parts=[function_response_part])
-                )  # Append the function response
-                is_user_turn = False
+                logger.debug(f"calling tool {tool_name} with args: {tool_call.args}")
+                try:
+                    result = tool(**tool_call.args)
+                    logger.debug(f"got result from tool {tool_name}: {result}")
+                    function_response_part = types.Part.from_function_response(
+                        name=tool_name,
+                        response={"result": result},
+                    )
+                    contents.append(
+                        types.Content(role="user", parts=[function_response_part])
+                    )  # Append the function response
+                    is_user_turn = False
+                except Exception as e:
+                    logger.error(
+                        f"Error executing tool {tool_name}: {e}", exc_info=True
+                    )
+                    dump_conversation(contents, e)
+                    # We might want to inform the model about the error
+                    contents.append(
+                        types.Content(
+                            role="user",
+                            parts=[
+                                types.Part(
+                                    text=f"Error executing tool {tool_name}: {e}"
+                                )
+                            ],
+                        )
+                    )
+                    is_user_turn = False
             else:
-                print(f"Tool {tool_name} not found")
+                logger.error(f"Tool {tool_name} not found")
                 contents.append(
                     types.Content(
                         role="user",
