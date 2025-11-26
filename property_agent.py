@@ -244,16 +244,16 @@ class PropertyAgent:
             - Paginate your recommendation to top 5 listings.
             - Structure of the final result should be like this:
               - Listing 1:
-                - Address: 1234567890
-                - Price: 1234567890
-                - URL: https://www.example.com
+                - 📍 Address: [1234567890](https://www.example.com)
+                - 💰 Price: 1234567890
+                ...
               - Listing 2:
                 ...
 
         4.  Refine:
             - Iterate based on user feedback.
 
-        Always be professional, helpful, and concise. Make sure your output is in markdown format.
+        Always be professional, helpful, and concise. Make sure your output is in markdown format. Use appropriate emojis for listing attributes (e.g. 🛏️ for bedrooms, 🛁 for bathrooms, 🅿️ for parking).
         """
 
         self.config = types.GenerateContentConfig(
