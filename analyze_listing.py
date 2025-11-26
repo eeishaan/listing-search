@@ -52,7 +52,9 @@ Provide a detailed summary answering these points.
 
 
 def _analyze_images(
-    image_urls: List[str], api_key: Optional[str] = None, prompt: Optional[str] = None
+    image_urls: List[str],
+    api_key: Optional[str] = None,
+    prompt: Optional[str] = None,
 ) -> str:
     """Core function to analyze images using Gemini."""
     if not image_urls:
@@ -92,7 +94,7 @@ def _analyze_images(
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",  # Updated to a likely valid model name, was gemini-2.5-flash
+            model="gemini-2.5-flash",
             contents=[analysis_prompt, *images],
         )
         return response.text
@@ -128,7 +130,10 @@ def analyze_listing(
 
 def analyze_listing_tool(params: AnalyzeListingParams) -> AnalyzeListingResult:
     """Tool function to be called by the LLM agent."""
-    analysis = _analyze_images(params.image_urls, prompt=params.prompt)
+    analysis = _analyze_images(
+        params.image_urls,
+        prompt=params.prompt,
+    )
     return AnalyzeListingResult(analysis=analysis)
 
 
