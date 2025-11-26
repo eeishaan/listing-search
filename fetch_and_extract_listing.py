@@ -132,13 +132,41 @@ async def extract_listing_details_async(
     return parse_listing_details(html_text, source_url=url)
 
 
+class Cache:
+    def __init__(self, cache_dir: Path = "cache"):
+        self.cache_dir = Path(cache_dir)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+    def get(self, url: str) -> Dict[str, Any]:
+        listing_num = url.split("/")[-1].strip()
+        print("searching cache for", listing_num)
+        cache_file = self.cache_dir / f"{listing_num}.json"
+        if cache_file.exists():
+            print("cache hit")
+            return json.loads(cache_file.read_text(encoding="utf-8"))
+        return None
+
+    def set(self, url: str, details: Dict[str, Any]):
+        listing_num = url.split("/")[-1]
+        cache_file = self.cache_dir / f"{listing_num}.json"
+        cache_file.write_text(json.dumps(details, indent=2), encoding="utf-8")
+
+
+GLOBAL_CACHE = Cache()
+
+
 def extract_listing_details(
     url: str, *, headed: bool = False, html_output: Path | None = None
 ) -> Dict[str, Any]:
     """Sync wrapper returning listing details."""
-    return asyncio.run(
+    result = GLOBAL_CACHE.get(url)
+    if result:
+        return result
+    result = asyncio.run(
         extract_listing_details_async(url, headed=headed, html_output=html_output)
     )
+    GLOBAL_CACHE.set(url, result)
+    return result
 
 
 def save_listing_details(details: Dict[str, Any], output_path: Path) -> None:
