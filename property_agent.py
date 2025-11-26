@@ -179,6 +179,9 @@ class PropertyAgent:
             - Use the `search_properties` tool to find listings matching the criteria.
             - When user asks for something than the search tool can't provide, you'll have to creatively use other tools to find that information.
             - IF YOU HAVE TO USE OTHER TOOLS, DO NOT PRESENT A SUMMARY OF YOUR RESULTS JUST YET. GO TO NEXT STEP FOR THAT.
+            - When user's criterias can't directly be used in search tool, think if image analysis can be used to make for the gaps.
+            - If you think image analysis can be used, don't complain to the user about it. The result of search tool will provide you with image analysis.
+            - If you think image analysis won't be able to provide the information, let the user know which criteria won't be used while searching and continue.
 
         3.  Deep Dive & Analyze:
             - For analysing a specific listing, use `get_listing_details` to fetch full details and image analysis.
@@ -225,7 +228,9 @@ class PropertyAgent:
 
         contents = []
         is_user_turn = True
-        first_query = "I'm looking to buy a property with at least 3 bedrooms and 2 baths. There should be at least 1 parking space. It can be a townhouse, semi-detached, or detached house. My area of choice is st. andrew-york mills. The layout should be simple and inviting and the light in the house should be adequate. My budget range is 700k to 900k."
+        # first_query = "I'm looking to buy a property with at least 3 bedrooms and 2 baths. There should be at least 1 parking space. It can be a townhouse, semi-detached, or detached house. My area of choice is st. andrew-york mills. The layout should be simple and inviting and the light in the house should be adequate. My budget range is 700k to 900k."
+        first_query = None
+        # first_query = "I'm looking for a house in one of the best school districts in toronto. My budget is between 700k to 900k. The area should be family friendly and have some parks around. The house should have at least 3 bedrooms, 2 bathrooms and 1 parking. Minimum sqft area should be 1000 sq ft. The house should have ample natural light and should not have a lot of dark corners in levels above grade."
         while True:
             print("len of contents at entry: ", len(contents))
 
@@ -247,6 +252,10 @@ class PropertyAgent:
                     config=self.config,
                 )
             except errors.ClientError as e:
+                print(e)
+                retry_delay = e.details["error"]["details"][-1]["retryDelay"][:-1]
+                print(f"sleeping for {retry_delay}")
+                time.sleep(int(retry_delay))
                 is_user_turn = False
                 continue
             except Exception as e:
@@ -304,7 +313,7 @@ class PropertyAgent:
 
 def main():
     # Allow model override via env var
-    model = os.environ.get("GEMINI_MODEL", "gemini-2.5-pro")
+    model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
     agent = PropertyAgent(model_name=model)
     agent.start_chat()
 
