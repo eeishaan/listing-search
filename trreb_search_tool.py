@@ -618,56 +618,69 @@ async def search_listings_async(
                 "domcontentloaded", timeout=PAGE_LOAD_TIMEOUT_MS
             )
 
-            # Swithc to list view
-            await switch_to_list_view(page)
-
             # Apply filters
             # 1. Set listing type (Sale/Lease)
             await set_listing_type(page, params.listing_type)
+            await page.wait_for_timeout(1000)
 
             # 2. Set location if provided
             if params.location:
                 await set_location(page, params.location)
+                await page.wait_for_timeout(1000)
+
+            # Switch to list view
+            await switch_to_list_view(page)
+            await page.wait_for_timeout(1000)
 
             # 3. Set property categories
             if params.property_categories:
                 await set_property_categories(page, params.property_categories)
+                await page.wait_for_timeout(1000)
 
             # 4. Set price range
             if params.price_min is not None or params.price_max is not None:
                 await set_price_range(page, params.price_min, params.price_max)
+                await page.wait_for_timeout(1000)
 
             # 5. Set bedrooms
             if params.bedrooms or params.bedrooms_plus:
                 await set_bedrooms(page, params.bedrooms, params.bedrooms_plus)
+                await page.wait_for_timeout(1000)
 
             # 6. Set bathrooms
             if params.bathrooms:
                 await set_bathrooms(page, params.bathrooms)
+                await page.wait_for_timeout(1000)
 
             # 7. Set freehold property types
             if params.freehold_types:
                 await set_property_types(page, params.freehold_types, "Freehold")
+                await page.wait_for_timeout(1000)
 
             # 8. Set condo types
             if params.condo_types:
                 await set_property_types(page, params.condo_types, "Condo")
+                await page.wait_for_timeout(1000)
 
             # 9. Set styles
             if params.styles:
                 await set_styles(page, params.styles)
+                await page.wait_for_timeout(1000)
 
             # 10. Set square footage
             if params.sqft_ranges:
                 await set_sqft_ranges(page, params.sqft_ranges)
+                await page.wait_for_timeout(1000)
 
             # 11. Set open house filter
             if params.has_open_house:
                 await set_open_house_filter(page, params.has_open_house)
+                await page.wait_for_timeout(1000)
 
             # 12. Set live stream filter
             if params.has_live_stream:
                 await set_live_stream_filter(page, params.has_live_stream)
+                await page.wait_for_timeout(1000)
 
             # Wait for results to update
             await page.wait_for_timeout(1000)
@@ -675,7 +688,7 @@ async def search_listings_async(
 
             # Extract results
             listings = await extract_listing_results(page)
-            total_count = await get_total_count(page)
+            total_count = len(listings)
             search_url = page.url
 
             # Limit results
@@ -684,7 +697,7 @@ async def search_listings_async(
 
             return SearchResults(
                 listings=listings,
-                total_count=total_count or len(listings),
+                total_count=total_count,
                 search_url=search_url,
             )
 
@@ -696,7 +709,7 @@ async def search_listings_async(
 def search_listings(
     params: TREBSearchParams,
     *,
-    headed: bool = False,
+    headed: bool = True,
     max_results: int = 50,
 ) -> SearchResults:
     """
@@ -722,7 +735,7 @@ def search_listings(
 # =============================================================================
 
 TOOL_DEFINITION = {
-    "name": "search_trreb_listings",
+    "name": "search_properties",
     "description": (
         "Search for real estate listings on the Toronto Regional Real Estate Board (TRREB) "
         "website. Set various filters like location, price range, bedrooms, bathrooms, "
