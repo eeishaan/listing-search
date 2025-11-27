@@ -1,4 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Mac
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Project specific
 *.log
 cache/
 image_cache/
-*.pyc
+data/
+output/
+downloads/
+.sesskey
+
+# Temporary/Data files
+listing.txt
+listing_details.json
+out.txt
+query.txt
+*.html
+!templates/*.html
+*.pdf
+property_agent_bkp.py

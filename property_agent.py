@@ -40,7 +40,7 @@ logger.setLevel(logging.DEBUG)
 
 # Create handlers
 c_handler = logging.StreamHandler(sys.stdout)
-log_filename = datetime.datetime.now().strftime("property_agent_%Y%m%d_%H%M%S.log")
+log_filename = "property_agent.log"
 f_handler = logging.FileHandler(log_filename)
 
 # Set levels

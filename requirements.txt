@@ -3,6 +3,6 @@ playwright
 requests
 Pillow
 argparse
-google-generativeai
+google-genai
 python-dotenv
 flask
