@@ -82,6 +82,7 @@ An AI-powered real estate assistant that helps users find and analyze properties
 1. Property search is limited to Toronto area.
 1. Due to a bug in TRREB's search interface, searching for "leases" is not supported by the current code.
 1. The top 5 listings selected are not semantically "top 5". They follow the order selected by TRREB search; which as of writing is ascending order of price.
+1. Not all filters present in TRREB search are supported in the search listing tool. It's trivial to add this support. Simply modify the tool function signature.
 1. I've extensively used AI assistance in building this tool. It should be quite apparent when going through the code :) 
 
 
