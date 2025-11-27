@@ -2,6 +2,8 @@
 
 An AI-powered real estate assistant that helps users find and analyze properties in Toronto. It integrates with the Toronto Regional Real Estate Board (TRREB) search, extracts listing details using Playwright, and analyzes property images and data using Google's Gemini AI.
 
+🎥 : [Click here for demo video](https://youtu.be/BnkGwZdtO0M)
+
 ## Features
 
 -   **Intelligent Search**: Automates property searches on TRREB based on natural language criteria.
