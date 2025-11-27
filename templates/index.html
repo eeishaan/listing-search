@@ -149,7 +149,7 @@
             align-items: center;
         }
 
-        input[type="text"] {
+        textarea {
             flex: 1;
             padding: 0.875rem 1rem;
             border: 1px solid var(--border-color);
@@ -158,9 +158,15 @@
             outline: none;
             transition: border-color 0.2s, box-shadow 0.2s;
             background-color: #f9fafb;
+            font-family: inherit;
+            resize: none;
+            overflow-y: hidden;
+            min-height: 1.5rem;
+            max-height: 150px;
+            line-height: 1.5;
         }
 
-        input[type="text"]:focus {
+        textarea:focus {
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
             background-color: #fff;
@@ -346,7 +352,7 @@
         </div>
         <div class="loading" id="loading">Agent is thinking...</div>
         <form class="input-area" id="chat-form">
-            <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off" required>
+            <textarea id="user-input" placeholder="Type your message..." rows="1" required></textarea>
             <button type="submit" id="send-btn">Send</button>
         </form>
     </div>
@@ -358,6 +364,21 @@
         const userInput = document.getElementById('user-input');
         const sendBtn = document.getElementById('send-btn');
         const loading = document.getElementById('loading');
+
+        // Auto-resize textarea
+        userInput.addEventListener('input', function () {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        // Handle Enter key to submit
+        userInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                // Trigger submit event on the form
+                chatForm.dispatchEvent(new Event('submit', { cancelable: true }));
+            }
+        });
 
         async function unfurlLink(url, container) {
             try {
@@ -420,6 +441,7 @@
             // Add user message
             appendMessage(text, 'user');
             userInput.value = '';
+            userInput.style.height = 'auto'; // Reset height
             userInput.disabled = true;
             sendBtn.disabled = true;
             loading.style.display = 'block';

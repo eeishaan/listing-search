@@ -101,7 +101,11 @@ def chat():
                         pass
 
                     # Check for tool calls in the chunk
-                    if chunk.candidates:
+                    if (
+                        chunk.candidates
+                        and chunk.candidates[0].content
+                        and chunk.candidates[0].content.parts
+                    ):
                         for part in chunk.candidates[0].content.parts:
                             if part.function_call:
                                 tool_call = part.function_call
