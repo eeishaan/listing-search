@@ -398,19 +398,11 @@
                 // Use marked to render markdown
                 div.innerHTML = marked.parse(text);
 
-                // Find links and unfurl them
+                // Find links and force new tab
                 const links = div.querySelectorAll('a');
-                // Only unfurl the first link to avoid clutter? Or all? Let's do up to 3.
-                let count = 0;
                 links.forEach(link => {
-                    // Force new tab for all links
                     link.target = "_blank";
                     link.rel = "noopener noreferrer";
-
-                    if (count < 3 && link.href) {
-                        unfurlLink(link.href, div);
-                        count++;
-                    }
                 });
             } else {
                 div.textContent = text;
@@ -495,17 +487,12 @@
                     }
                 }
 
-                // Unfurl links in the last message if exists
+                // Ensure all links in the final message open in a new tab
                 if (agentMessageDiv) {
                     const links = agentMessageDiv.querySelectorAll('a');
-                    let count = 0;
                     links.forEach(link => {
                         link.target = "_blank";
                         link.rel = "noopener noreferrer";
-                        if (count < 3 && link.href) {
-                            unfurlLink(link.href, agentMessageDiv);
-                            count++;
-                        }
                     });
                 }
 
