@@ -1,0 +1,8 @@
+pydantic
+playwright
+requests
+Pillow
+argparse
+google-generativeai
+python-dotenv
+flask
