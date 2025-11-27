@@ -52,6 +52,15 @@ Analyze these images of a house listing and answer the following questions:
 Provide a detailed summary answering these points.
 """
 
+CAUTION_PROMPT = """
+CAUTION:
+1. Do not get fooled by use of editing techniques to make the house look better.
+2. Make sure not to get fooled by use of wide angle lenses to make the house look bigger than it is.
+3. Do not get fooled by good staging to make the house look better than it is.
+4. Pay close attention to details like cracks in the walls, paint peeling, water stains, etc.
+5. Note sources of allergens like mold, mildew, carpets, etc.
+"""
+
 
 def _analyze_images(
     image_urls: List[str],
@@ -93,6 +102,8 @@ def _analyze_images(
     client = genai.Client(api_key=api_key)
 
     analysis_prompt = prompt if prompt else DEFAULT_PROMPT
+
+    analysis_prompt = f"{analysis_prompt}\n\n{CAUTION_PROMPT}"
 
     generate_content_config = types.GenerateContentConfig(
         thinkingConfig={

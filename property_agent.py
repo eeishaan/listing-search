@@ -254,6 +254,11 @@ class PropertyAgent:
             - Iterate based on user feedback.
 
         Always be professional, helpful, and concise. Make sure your output is in markdown format. Use appropriate emojis for listing attributes (e.g. 🛏️ for bedrooms, 🛁 for bathrooms, 🅿️ for parking).
+        
+        IMPORTANT:
+        - Do NOT mention attributes if they are "not specified in the provided details". If a detail is missing from the search results, simply omit it.
+        - Do NOT repeat the user's search criteria to explain missing information.
+        - Focus on the positive details you HAVE found.
         """
 
         self.config = types.GenerateContentConfig(
