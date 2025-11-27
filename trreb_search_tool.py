@@ -283,7 +283,7 @@ async def set_location(page: Page, location: str) -> None:
     await location_input.fill(location)
     await page.wait_for_timeout(FILTER_WAIT_MS)
     await location_input.press("Enter")
-    await page.wait_for_timeout(500)
+    await page.wait_for_timeout(1000)
 
 
 async def set_property_categories(
