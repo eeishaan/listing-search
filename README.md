@@ -23,7 +23,7 @@ An AI-powered real estate assistant that helps users find and analyze properties
 1.  **Clone the repository:**
 
     ```bash
-    git clone https://github.com/yourusername/listing-search.git
+    git clone https://github.com/eeishaan/listing-search.git
     cd listing-search
     ```
 
